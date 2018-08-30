@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby
+
+require 'erb'
+require 'nokogiri'
+require 'open-uri'
+require 'openssl'
+require 'ostruct'
+require 'securerandom'
+require 'yaml'
+
+def erb(template, hash)
+  ERB.new(File.join(template)).result(OpenStruct.new(hash).instance_eval { binding })
+end
+
+if ARGV.size < 2
+  abort('Usage: generate <cfg file> <output dir>')
+end
+
+YAML.load_file(ARGV[0]).tap do |cfg|
+  output_dir = ARGV[1]
+
+  if File.directory?(output_dir)
+    puts("Warning: #{output_dir} already exists. Overwriting contents.") 
+  else
+    Dir.mkdir(output_dir)
+  end
+
+  # Random password for keystores
+  cfg['ks_password'] = SecureRandom.hex
+
+  # Random password for database
+  cfg['db_password'] = SecureRandom.hex
+
+  # Grab the port -- should fallback to 443 if URL is https and explicit port omitted
+  cfg['middleware_port'] = URI(cfg.fetch('middleware_url')).port
+
+  # Fetch connector metadata
+  connector_metadata_raw = open(cfg.fetch('connector_metadata_url')).read
+ 
+  # Extract signing cert
+  connector_metadata_xml = Nokogiri::XML(connector_metadata_raw)
+  connector_metadata_xml.remove_namespaces!
+  connector_metadata_x509 = connector_metadata_xml.css('EntityDescriptor Signature KeyInfo X509Data X509Certificate').text
+  connector_metadata_cert = OpenSSL::X509::Certificate.new(['-----BEGIN CERTIFICATE-----', connector_metadata_x509, '-----END CERTIFICATE-----'].join)
+  puts("Connector metadata signing cert: #{connector_metadata_cert.subject}")
+
+  # User-facing SSL keypair
+  ssl_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('ssl', 'cert')))
+  ssl_key = OpenSSL::PKey.read(File.open(cfg.dig('ssl', 'key')))
+  ssl_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'localhost', ssl_key, ssl_cert)
+
+  # DVCA-facing TLS keypair
+  tls_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('backend_tls', 'cert')))
+  tls_key = OpenSSL::PKey.read(File.open(cfg.dig('backend_tls', 'key')))
+  cfg['client_cert'] = tls_cert.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
+  cfg['client_key'] = tls_key.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
+ 
+  saml_signing_cert = Opensaml_signing::X509::Certificate.new(File.read(cfg.dig('saml_signing', 'cert')))
+  saml_signing_key = Opensaml_signing::PKey.read(File.open(cfg.dig('saml_signing', 'key')))
+  saml_signing_p12 = Opensaml_signing::PKCS12.create(cfg['ks_password'], 'localhost', saml_signing_key, saml_signing_cert)
+
+  saml_crypt_cert = Opensaml_crypt::X509::Certificate.new(File.read(cfg.dig('saml_crypt', 'cert')))
+  saml_crypt_key = Opensaml_crypt::PKey.read(File.open(cfg.dig('saml_crypt', 'key')))
+  saml_crypt_p12 = Opensaml_crypt::PKCS12.create(cfg['ks_password'], 'localhost', saml_crypt_key, saml_crypt_cert)
+
+  Dir.chdir(output_dir) do
+    # Write signing cert as DER
+    File.open('connector_metadata_cert.der', 'wb') { |f| f.print(connector_metadata_cert.to_der) }
+
+    # Write connector metadata to file in euconfigs/
+    Dir.mkdir('euconfigs') unless File.directory?('euconfigs')
+    File.open(File.join('euconfigs', 'connector_metadata.xml'), 'w') { |f| f.print(connector_metadata_raw) }
+    
+    # Write pkcs12 containing user-facing SSL cert and key
+    File.open('ssl.p12', 'wb') { |f| f.print(ssl_p12.to_der) }
+
+    # Put SAML signing cert and key in JKS
+    File.open('saml_signing.p12', 'wb') { |f| f.print(saml_signing_p12.to_der) }
+    system('keytool -importkeystore -srckeystore saml_signing.p12 -destkeystore middleware_sign.jks -srcstoretype pkcs12 -alias middleware_sign')
+
+    # Put SAML crypt cert and key in JKS
+    File.open('saml_crypt.p12', 'wb') { |f| f.print(saml_crypt_p12.to_der) }
+    system('keytool -importkeystore -srckeystore saml_crypt.p12 -destkeystore middleware_decrypt.jks -srcstoretype pkcs12 -alias middleware_decrypt')
+
+    # Render config templates
+    Dir.glob(__dir__, 'templates', '*.erb').each { |t| File.open(t.gsub('.erb', ''), 'w') { |f| f.print(erb(t, cfg)) } }
+  end
+end
