@@ -1,7 +1,6 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    bcrypt (3.1.12)
     mini_portile2 (2.3.0)
     nokogiri (1.8.4)
       mini_portile2 (~> 2.3.0)
@@ -10,7 +9,6 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  bcrypt
   nokogiri
 
 RUBY VERSION

@@ -8,6 +8,8 @@ function cleanup {
 }
 trap cleanup EXIT
 
+bundle --quiet
+
 rm -rf mw-config mw-database
 mkdir mw-config mw-database
 docker-compose down 2>/dev/null
