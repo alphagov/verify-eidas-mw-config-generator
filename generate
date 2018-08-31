@@ -8,8 +8,16 @@ require 'ostruct'
 require 'securerandom'
 require 'yaml'
 
-def erb(template, hash)
-  ERB.new(File.join(template)).result(OpenStruct.new(hash).instance_eval { binding })
+def render_erb(template, hash, output_file = nil)
+  erb = File.read(File.join(__dir__, 'templates', "#{template}.erb"))
+  File.open(output_file || template, 'w') do |f|
+    f.print(ERB.new(erb).result(OpenStruct.new(hash).instance_eval { binding }))
+  end
+end
+
+def pkcs12_to_jks(pkcs12, jks, name, pass)
+  File.delete(jks) if File.exist?(jks)
+  system("keytool -importkeystore -srckeystore #{pkcs12} -destkeystore #{jks} -srcstoretype pkcs12 -alias #{name} -srcstorepass #{pass} -deststorepass #{pass}")
 end
 
 if ARGV.size < 2
@@ -47,21 +55,22 @@ YAML.load_file(ARGV[0]).tap do |cfg|
   # User-facing SSL keypair
   ssl_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('ssl', 'cert')))
   ssl_key = OpenSSL::PKey.read(File.open(cfg.dig('ssl', 'key')))
+  ssl_key_enc = ssl_key.export(OpenSSL::Cipher.new('AES-128-CBC'), cfg['ks_password'])
   ssl_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'localhost', ssl_key, ssl_cert)
 
   # DVCA-facing TLS keypair
-  tls_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('backend_tls', 'cert')))
-  tls_key = OpenSSL::PKey.read(File.open(cfg.dig('backend_tls', 'key')))
+  tls_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('dvca_tls', 'cert')))
+  tls_key = OpenSSL::PKey.read(File.open(cfg.dig('dvca_tls', 'key')))
   cfg['client_cert'] = tls_cert.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
   cfg['client_key'] = tls_key.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
  
-  saml_signing_cert = Opensaml_signing::X509::Certificate.new(File.read(cfg.dig('saml_signing', 'cert')))
-  saml_signing_key = Opensaml_signing::PKey.read(File.open(cfg.dig('saml_signing', 'key')))
-  saml_signing_p12 = Opensaml_signing::PKCS12.create(cfg['ks_password'], 'localhost', saml_signing_key, saml_signing_cert)
+  saml_signing_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('saml_signing', 'cert')))
+  saml_signing_key = OpenSSL::PKey.read(File.open(cfg.dig('saml_signing', 'key')))
+  saml_signing_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'middleware_sign', saml_signing_key, saml_signing_cert)
 
-  saml_crypt_cert = Opensaml_crypt::X509::Certificate.new(File.read(cfg.dig('saml_crypt', 'cert')))
-  saml_crypt_key = Opensaml_crypt::PKey.read(File.open(cfg.dig('saml_crypt', 'key')))
-  saml_crypt_p12 = Opensaml_crypt::PKCS12.create(cfg['ks_password'], 'localhost', saml_crypt_key, saml_crypt_cert)
+  saml_crypt_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('saml_crypt', 'cert')))
+  saml_crypt_key = OpenSSL::PKey.read(File.open(cfg.dig('saml_crypt', 'key')))
+  saml_crypt_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'middleware_decrypt', saml_crypt_key, saml_crypt_cert)
 
   Dir.chdir(output_dir) do
     # Write signing cert as DER
@@ -76,13 +85,15 @@ YAML.load_file(ARGV[0]).tap do |cfg|
 
     # Put SAML signing cert and key in JKS
     File.open('saml_signing.p12', 'wb') { |f| f.print(saml_signing_p12.to_der) }
-    system('keytool -importkeystore -srckeystore saml_signing.p12 -destkeystore middleware_sign.jks -srcstoretype pkcs12 -alias middleware_sign')
+    pkcs12_to_jks('saml_signing.p12', 'middleware_sign.jks', 'middleware_sign', cfg['ks_password'])
 
     # Put SAML crypt cert and key in JKS
     File.open('saml_crypt.p12', 'wb') { |f| f.print(saml_crypt_p12.to_der) }
-    system('keytool -importkeystore -srckeystore saml_crypt.p12 -destkeystore middleware_decrypt.jks -srcstoretype pkcs12 -alias middleware_decrypt')
+    pkcs12_to_jks('saml_crypt.p12', 'middleware_decrypt.jks', 'middleware_decrypt', cfg['ks_password'])
 
     # Render config templates
-    Dir.glob(__dir__, 'templates', '*.erb').each { |t| File.open(t.gsub('.erb', ''), 'w') { |f| f.print(erb(t, cfg)) } }
+    render_erb('application.properties', cfg)
+    render_erb('eidasmiddleware.properties', cfg)
+    render_erb("POSeIDAS_#{cfg['which_dvca']}.xml", cfg, 'POSeIDAS.xml')
   end
 end

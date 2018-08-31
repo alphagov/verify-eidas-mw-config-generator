@@ -13,7 +13,7 @@
         <masterAndDefectListRenewal length="2"
             unit="11" />
     </TimerConfiguration>
-    <ServiceProvider entityID="<%= connector_metadata_url %>" enabled="true">
+    <ServiceProvider entityID="verify_<%= environment %>" enabled="true">
         <EPAConnectorConfiguration updateCVC="true">
             <CVCRefID>verify_<%= environment %></CVCRefID>
             <PkiConnectorConfiguration>

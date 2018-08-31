@@ -18,7 +18,7 @@ SERVICE_PROVIDER_METADATA_SIGNATURE_CERT=/opt/eidas-middleware/configuration/con
 SERVER_URL=<%= middleware_url %>
 
 #EntityID of the corresponding service provider in POSeIDAS.xml
-ENTITYID_INT=<%= connector_metadata_url %>
+ENTITYID_INT=verify_<%= environment %>
 
 #Path to the keystore containing the middleware signature keypair
 MIDDLEWARE_SIGN_KEY=/opt/eidas-middleware/configuration/middleware_sign.jks
