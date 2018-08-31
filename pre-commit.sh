@@ -23,9 +23,16 @@ docker-compose down 2>/dev/null
 
   echo -n "Checking middleware is serving metadata"
   for i in $(seq 10); do
-    curl -ksf -o /dev/null https://localhost:8443/eidas-middleware/Metadata && break
+    if test $i -eq 10; then
+      echo "FAIL"
+      echo "See pre-commit.log"
+      docker-compose logs --no-color 1>&2
+      exit
+    fi
+
+    curl -k -o /dev/null https://localhost:8448/eidas-middleware/Metadata && break
     echo -n "."
-    sleep 2
+    sleep 3
   done
   echo "DONE"
 

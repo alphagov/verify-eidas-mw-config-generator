@@ -3,7 +3,7 @@ services:
   middleware-application:
     image: "governikus/eidas-middleware-application:1.0.6"
     ports:
-      - "8443:8443"
+      - "8448:8448"
     volumes:
       - ./mw-config:/opt/eidas-middleware/configuration
       - ./mw-database:/opt/eidas-middleware/database
