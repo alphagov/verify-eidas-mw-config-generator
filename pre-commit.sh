@@ -29,7 +29,7 @@ docker-compose down 2>/dev/null
       echo "FAIL"
       echo "See pre-commit.log"
       docker-compose logs --no-color 1>&2
-      exit
+      exit 1
     fi
 
     curl -k -o /dev/null https://localhost:8448/eidas-middleware/Metadata && break
