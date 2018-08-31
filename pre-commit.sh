@@ -5,16 +5,18 @@ set -euo pipefail
 function cleanup {
   echo "Bringing down middleware:"
   docker-compose down
+  docker volume rm mw-database-test 1>&2
 }
 trap cleanup EXIT
 
-bundle --quiet
-
-rm -rf mw-config mw-database
-mkdir mw-config mw-database
-docker-compose down 2>/dev/null
-
 {
+  bundle --quiet
+
+  rm -rf mw-config mw-database
+  mkdir mw-config
+  docker-compose down 2>/dev/null
+  docker volume create mw-database-test 1>&2
+
   echo -n "Generating test config..."
   ./generate test/config.yml mw-config 1>&2 
   echo "DONE"
@@ -38,8 +40,8 @@ docker-compose down 2>/dev/null
   done
   echo "DONE"
 
+  rm -rf mw-config mw-database
+
   echo "Success!"
 } 2>pre-commit.log
 
-rm -rf mw-config mw-database
-rm pre-commit.log

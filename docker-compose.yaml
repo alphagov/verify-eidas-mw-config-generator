@@ -6,4 +6,7 @@ services:
       - "8448:8448"
     volumes:
       - ./mw-config:/opt/eidas-middleware/configuration
-      - ./mw-database:/opt/eidas-middleware/database
+      - mw-database-test:/opt/eidas-middleware/database
+volumes:
+  mw-database-test:
+    external: true
