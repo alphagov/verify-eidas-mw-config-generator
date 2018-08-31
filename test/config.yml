@@ -1,21 +1,21 @@
 which_dvca: TESTING
 environment: test
-middleware_url: https://test-middleware.local
+middleware_url: https://localhost:8448
 connector_metadata_url: https://www.joint.signin.service.gov.uk/SAML2/metadata/connector
 admin_password_hash: "$2a$10$VhGOf7RRHnhdwSIe93pyQuHGuHeNymCzhFAD5XDet3QRmMK4C./Xu"
 
 ssl:
-  cert: test/ssl.crt.pem
-  key: test/ssl.key.pem
+  cert: ssl.crt.pem
+  key: ssl.key.pem
 
 dvca_tls:
-  cert: test/dvca_tls.crt.pem
-  key: test/dvca_tls.key.pem
+  cert: dvca_tls.crt.pem
+  key: dvca_tls.key.pem
 
 saml_signing:
-  cert: test/saml_signing.crt.pem
-  key: test/saml_signing.key.pem
+  cert: saml_signing.crt.pem
+  key: saml_signing.key.pem
 
 saml_crypt:
-  cert: test/saml_crypt.crt.pem
-  key: test/saml_crypt.key.pem
+  cert: saml_crypt.crt.pem
+  key: saml_crypt.key.pem

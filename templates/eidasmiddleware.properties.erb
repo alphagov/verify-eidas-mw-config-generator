@@ -21,17 +21,17 @@ SERVER_URL=<%= middleware_url %>
 ENTITYID_INT=verify_<%= environment %>
 
 #Path to the keystore containing the middleware signature keypair
-MIDDLEWARE_SIGN_KEY=/opt/eidas-middleware/configuration/middleware_sign.jks
+MIDDLEWARE_SIGN_KEY=/opt/eidas-middleware/configuration/saml_signing.p12
 #Pin of the signature key
 MIDDLEWARE_SIGN_PIN=<%= ks_password %>
 #Alias of the signature key
-MIDDLEWARE_SIGN_ALIAS=middleware_sign
+MIDDLEWARE_SIGN_ALIAS=saml_signing
 #Path to the keystore containing the middleware crypto keypair
-MIDDLEWARE_CRYPT_KEY=/opt/eidas-middleware/configuration/middleware_decrypt.jks
+MIDDLEWARE_CRYPT_KEY=/opt/eidas-middleware/configuration/saml_crypt.p12
 #Pin of the crypto key
 MIDDLEWARE_CRYPT_PIN=<%= ks_password %>
 #Alias of the crypto key
-MIDDLEWARE_CRYPT_ALIAS=middleware_decrypt
+MIDDLEWARE_CRYPT_ALIAS=saml_crypt
 
 #country where the MW is deployed
 COUNTRYCODE=GB
