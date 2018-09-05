@@ -15,6 +15,27 @@ def render_erb(template, hash, output_file = nil)
   end
 end
 
+def get_pair(hash, what)
+  y = hash[what]
+  p12_s, p12_pass = y.values_at('pkcs12', 'passphrase')
+  key_s, cert_s = y.values_at('key', 'cert')
+
+  if p12_s && p12_pass
+    p12_d = File.exist?(p12_s) ? OpenSSL::PKCS12.new(File.read(p12_s), p12_pass) : OpenSSL::PKCS12.new(p12_s, p12_pass)
+    puts("Read keypair for '#{what}' from PKCS12: #{p12_d.certificate.subject}")
+    return [p12_d.key, p12_d.certificate]
+  elsif key_s && cert_s
+    key_d = File.exist?(key_s) ? File.read(key_s) : key_s
+    cert_d = File.exist?(cert_s) ? File.read(cert_s) : cert_s
+    key = OpenSSL::PKey.read(key_d)
+    cert = OpenSSL::X509::Certificate.new(cert_d)
+    puts("Read keypair for '#{what}': #{cert.subject}")
+    return [key, cert]
+  else
+    abort("Bad keypair definition for '#{what}': #{y.inspect}")
+  end
+end
+
 if ARGV.size < 2
   abort('Usage: generate <cfg file> <output dir>')
 end
@@ -46,23 +67,19 @@ YAML.load_file(CONFIG_DEF).tap do |cfg|
     puts("Config in #{cwd}")
 
     # User-facing SSL keypair
-    ssl_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('ssl', 'cert')))
-    ssl_key = OpenSSL::PKey.read(File.open(cfg.dig('ssl', 'key')))
+    ssl_key, ssl_cert = get_pair(cfg, 'ssl')
     ssl_key_enc = ssl_key.export(OpenSSL::Cipher.new('AES-128-CBC'), cfg['ks_password'])
     @ssl_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'localhost', ssl_key, ssl_cert)
 
     # DVCA-facing TLS keypair
-    tls_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('dvca_tls', 'cert')))
-    tls_key = OpenSSL::PKey.read(File.open(cfg.dig('dvca_tls', 'key')))
+    tls_key, tls_cert = get_pair(cfg, 'dvca_tls')
     cfg['client_cert'] = tls_cert.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
     cfg['client_key'] = tls_key.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
    
-    saml_signing_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('saml_signing', 'cert')))
-    saml_signing_key = OpenSSL::PKey.read(File.open(cfg.dig('saml_signing', 'key')))
+    saml_signing_key, saml_signing_cert = get_pair(cfg, 'saml_signing')
     @saml_signing_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'saml_signing', saml_signing_key, saml_signing_cert)
 
-    saml_crypt_cert = OpenSSL::X509::Certificate.new(File.read(cfg.dig('saml_crypt', 'cert')))
-    saml_crypt_key = OpenSSL::PKey.read(File.open(cfg.dig('saml_crypt', 'key')))
+    saml_crypt_key, saml_crypt_cert = get_pair(cfg, 'saml_crypt')
     @saml_crypt_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'saml_crypt', saml_crypt_key, saml_crypt_cert)
   end
 
