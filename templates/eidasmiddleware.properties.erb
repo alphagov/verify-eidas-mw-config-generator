@@ -10,9 +10,9 @@
 
 #Please Note: Use absolute filepath
 #PATH to the folder with the service provider metadata
-SERVICE_PROVIDER_CONFIG_FOLDER=/opt/eidas-middleware/config/euconfigs
+SERVICE_PROVIDER_CONFIG_FOLDER=/opt/eidas-middleware/configuration/euconfigs
 #PATH to the certificate the metadata is signed with
-SERVICE_PROVIDER_METADATA_SIGNATURE_CERT=/opt/eidas-middleware/config/connector_metadata_cert.der
+SERVICE_PROVIDER_METADATA_SIGNATURE_CERT=/opt/eidas-middleware/configuration/connector_metadata_cert.der
 
 #URL at which middleware is running
 SERVER_URL=<%= middleware_url %>
@@ -21,13 +21,13 @@ SERVER_URL=<%= middleware_url %>
 ENTITYID_INT=verify_<%= environment %>
 
 #Path to the keystore containing the middleware signature keypair
-MIDDLEWARE_SIGN_KEY=/opt/eidas-middleware/config/saml_signing.p12
+MIDDLEWARE_SIGN_KEY=/opt/eidas-middleware/configuration/saml_signing.p12
 #Pin of the signature key
 MIDDLEWARE_SIGN_PIN=<%= ks_password %>
 #Alias of the signature key
 MIDDLEWARE_SIGN_ALIAS=saml_signing
 #Path to the keystore containing the middleware crypto keypair
-MIDDLEWARE_CRYPT_KEY=/opt/eidas-middleware/config/saml_crypt.p12
+MIDDLEWARE_CRYPT_KEY=/opt/eidas-middleware/configuration/saml_crypt.p12
 #Pin of the crypto key
 MIDDLEWARE_CRYPT_PIN=<%= ks_password %>
 #Alias of the crypto key
