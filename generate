@@ -47,9 +47,6 @@ YAML.load_file(CONFIG_DEF).tap do |cfg|
   # Random password for keystores
   cfg['ks_password'] = SecureRandom.hex
 
-  # Random password for database
-  cfg['db_password'] = SecureRandom.hex
-
   # Grab the port -- should fallback to 443 if URL is https and explicit port omitted
   cfg['middleware_port'] = URI(cfg.fetch('middleware_url')).port
 
