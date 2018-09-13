@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'erb'
+require 'logger'
 require 'nokogiri'
 require 'open-uri'
 require 'openssl'
@@ -8,6 +9,9 @@ require 'base64'
 require 'ostruct'
 require 'securerandom'
 require 'yaml'
+
+LOG = Logger.new(STDOUT)
+LOG.level = Logger::INFO
 
 def render_erb(template, hash, output_file = nil)
   erb = File.read(File.join(__dir__, 'templates', "#{template}.erb"))
@@ -23,18 +27,22 @@ def get_pair(hash, what)
 
   if p12_s && p12_pass
     p12_d = File.exist?(p12_s) ? OpenSSL::PKCS12.new(File.read(p12_s), p12_pass) : OpenSSL::PKCS12.new(p12_s, p12_pass)
-    puts("Read keypair for '#{what}' from PKCS12: #{p12_d.certificate.subject}")
+    LOG.info("[pkcs12] #{what}.cert: #{p12_d.certificate.subject}")
     return [p12_d.key, p12_d.certificate]
   elsif key_s && cert_s
     key_d = File.exist?(key_s) ? File.read(key_s) : key_s
     cert_d = File.exist?(cert_s) ? File.read(cert_s) : cert_s
     key = OpenSSL::PKey.read(key_d)
     cert = OpenSSL::X509::Certificate.new(cert_d)
-    puts("Read keypair for '#{what}': #{cert.subject}")
+    LOG.info("[inline] #{what}.cert: #{cert.subject}")
     return [key, cert]
   else
-    abort("Bad keypair definition for '#{what}': #{y.inspect}")
+    LOG.error("Bad keypair definition for '#{what}': #{y.inspect}")
+    abort
   end
+rescue StandardError => e
+  LOG.error("PKI error: #{e}")
+  abort
 end
 
 if ARGV.size < 2
@@ -49,17 +57,24 @@ YAML.load_file(CONFIG_DEF).tap do |cfg|
   cfg['ks_password'] = SecureRandom.hex
 
   # Fetch connector metadata
-  @connector_metadata_raw = open(cfg.fetch('connector_metadata_url')).read
+  connector_metadata_url = cfg.fetch('connector_metadata_url')
+  begin
+    LOG.info("Fetching connector metadata from #{connector_metadata_url}")
+    @connector_metadata_raw = open(connector_metadata_url, read_timeout: 10).read
+  rescue StandardError => e
+    LOG.error("Failed: #{e}")
+    abort
+  end
  
   # Extract signing cert
   connector_metadata_xml = Nokogiri::XML(@connector_metadata_raw)
   connector_metadata_xml.remove_namespaces!
   connector_metadata_x509 = connector_metadata_xml.css('EntityDescriptor Signature KeyInfo X509Data X509Certificate').text
   @connector_metadata_cert = OpenSSL::X509::Certificate.new(Base64.decode64(connector_metadata_x509))
-  puts("Connector metadata signing cert: #{@connector_metadata_cert.subject}")
+  LOG.info("Connector metadata signing cert: #{@connector_metadata_cert.subject}")
 
   Dir.chdir(File.dirname(File.expand_path(CONFIG_DEF))) do |cwd|
-    puts("Config in #{cwd}")
+    LOG.info("Setting working directory: #{cwd}")
 
     # User-facing SSL keypair
     ssl_key, ssl_cert = get_pair(cfg, 'ssl')
@@ -78,10 +93,10 @@ YAML.load_file(CONFIG_DEF).tap do |cfg|
     @saml_crypt_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'saml_crypt', saml_crypt_key, saml_crypt_cert)
   end
 
-  puts("Output to #{OUTPUT_DIR}")
+  LOG.info("Config output to: #{OUTPUT_DIR}")
 
   if File.directory?(OUTPUT_DIR)
-    puts("Warning: #{OUTPUT_DIR} already exists. Overwriting contents.") 
+    LOG.warn("#{OUTPUT_DIR} already exists. Overwriting contents.")
   else
     Dir.mkdir(OUTPUT_DIR)
   end
