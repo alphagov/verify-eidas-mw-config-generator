@@ -4,6 +4,7 @@ require 'erb'
 require 'nokogiri'
 require 'open-uri'
 require 'openssl'
+require 'base64'
 require 'ostruct'
 require 'securerandom'
 require 'yaml'
@@ -54,7 +55,7 @@ YAML.load_file(CONFIG_DEF).tap do |cfg|
   connector_metadata_xml = Nokogiri::XML(@connector_metadata_raw)
   connector_metadata_xml.remove_namespaces!
   connector_metadata_x509 = connector_metadata_xml.css('EntityDescriptor Signature KeyInfo X509Data X509Certificate').text
-  @connector_metadata_cert = OpenSSL::X509::Certificate.new(['-----BEGIN CERTIFICATE-----', connector_metadata_x509.strip, '-----END CERTIFICATE-----'].join("\n"))
+  @connector_metadata_cert = OpenSSL::X509::Certificate.new(Base64.decode64(connector_metadata_x509))
   puts("Connector metadata signing cert: #{@connector_metadata_cert.subject}")
 
   Dir.chdir(File.dirname(File.expand_path(CONFIG_DEF))) do |cwd|
