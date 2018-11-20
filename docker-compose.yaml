@@ -1,12 +1,13 @@
 version: '3'
 services:
   middleware-application:
-    image: "governikus/eidas-middleware-application:1.0.6"
+    image: "govukverify/eidas-middleware"
     ports:
       - "8448:8443"
     volumes:
       - ./mw-config:/opt/eidas-middleware/configuration
       - mw-database-test:/opt/eidas-middleware/database
+    container_name: eidas-middleware
 volumes:
   mw-database-test:
     external: true
