@@ -1,126 +1,26 @@
 #!/usr/bin/env ruby
 
-require 'erb'
-require 'logger'
-require 'nokogiri'
-require 'open-uri'
-require 'openssl'
-require 'base64'
-require 'ostruct'
-require 'securerandom'
-require 'yaml'
+require 'optparse'
+require_relative 'lib/config'
 
-LOG = Logger.new(STDOUT)
-LOG.level = Logger::INFO
+opts = {}
 
-def render_erb(template, hash, output_file = nil)
-  erb = File.read(File.join(__dir__, 'templates', "#{template}.erb"))
-  File.open(output_file || template, 'w') do |f|
-    f.print(ERB.new(erb).result(OpenStruct.new(hash).instance_eval { binding }))
-  end
-end
-
-def get_pair(hash, what)
-  y = hash[what]
-  p12_s, p12_pass = y.values_at('pkcs12', 'passphrase')
-  key_s, cert_s = y.values_at('key', 'cert')
-
-  if p12_s && p12_pass
-    p12_d = File.exist?(p12_s) ? OpenSSL::PKCS12.new(File.read(p12_s), p12_pass) : OpenSSL::PKCS12.new(p12_s, p12_pass)
-    LOG.info("[pkcs12] #{what}.cert: #{p12_d.certificate.subject}")
-    return [p12_d.key, p12_d.certificate]
-  elsif key_s && cert_s
-    key_d = File.exist?(key_s) ? File.read(key_s) : key_s
-    cert_d = File.exist?(cert_s) ? File.read(cert_s) : cert_s
-    key = OpenSSL::PKey.read(key_d)
-    cert = OpenSSL::X509::Certificate.new(cert_d)
-    LOG.info("[inline] #{what}.cert: #{cert.subject}")
-    return [key, cert]
-  else
-    LOG.error("Bad keypair definition for '#{what}': #{y.inspect}")
-    abort
-  end
-rescue StandardError => e
-  LOG.error("PKI error for #{what}: #{e}")
-  abort
-end
-
-if ARGV.size < 2
-  abort('Usage: generate <cfg file> <output dir>')
-end
-
-CONFIG_DEF = ARGV[0]
-OUTPUT_DIR = File.expand_path(ARGV[1])
-
-YAML.load_file(CONFIG_DEF).tap do |cfg|
-  # Random password for keystores
-  cfg['ks_password'] = SecureRandom.hex
-
-  # Fetch connector metadata
-  connector_metadata_url = cfg.fetch('connector_metadata_url')
-  begin
-    LOG.info("Fetching connector metadata from #{connector_metadata_url}")
-    @connector_metadata_raw = open(connector_metadata_url, read_timeout: 10).read
-  rescue StandardError => e
-    LOG.error("Failed: #{e}")
-    abort
-  end
- 
-  # Extract signing cert
-  connector_metadata_xml = Nokogiri::XML(@connector_metadata_raw)
-  connector_metadata_xml.remove_namespaces!
-  connector_metadata_x509 = connector_metadata_xml.css('EntityDescriptor Signature KeyInfo X509Data X509Certificate').text
-  @connector_metadata_cert = OpenSSL::X509::Certificate.new(Base64.decode64(connector_metadata_x509))
-  LOG.info("Connector metadata signing cert: #{@connector_metadata_cert.subject}")
-
-  Dir.chdir(File.dirname(File.expand_path(CONFIG_DEF))) do |cwd|
-    LOG.info("Setting working directory: #{cwd}")
-
-    # User-facing SSL keypair
-    ssl_key, ssl_cert = get_pair(cfg, 'ssl')
-    ssl_key_enc = ssl_key.export(OpenSSL::Cipher.new('AES-128-CBC'), cfg['ks_password'])
-    @ssl_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'localhost', ssl_key, ssl_cert)
-
-    # DVCA-facing TLS keypair
-    tls_key, tls_cert = get_pair(cfg, 'dvca_tls')
-    cfg['client_cert'] = tls_cert.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
-    cfg['client_key'] = tls_key.to_pem.gsub(/-{5}.+-{5}/, '').gsub("\n", '')
-   
-    saml_signing_key, saml_signing_cert = get_pair(cfg, 'saml_signing')
-    @saml_signing_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'saml_signing', saml_signing_key, saml_signing_cert)
-
-    saml_crypt_key, saml_crypt_cert = get_pair(cfg, 'saml_crypt')
-    @saml_crypt_p12 = OpenSSL::PKCS12.create(cfg['ks_password'], 'saml_crypt', saml_crypt_key, saml_crypt_cert)
+OptionParser.new do |op|
+  op.on('-e', '--env', 'Get config from env vars') do
+    puts 'Reading config from environment variables'
+    @mwcfg = MiddlewareConfig.from_env_vars(ENV)
   end
 
-  LOG.info("Config output to: #{OUTPUT_DIR}")
-
-  if File.directory?(OUTPUT_DIR)
-    LOG.warn("#{OUTPUT_DIR} already exists. Overwriting contents.")
-  else
-    Dir.mkdir(OUTPUT_DIR)
+  op.on('-f', '--config-file[=CONFIG_FILE]', 'Read config from file') do |cfg|
+    puts "Reading config from file #{cfg}"
+    @mwcfg = MiddlewareConfig.from_yaml_file(cfg)
   end
 
-  Dir.chdir(OUTPUT_DIR) do
-    # Write signing cert as DER
-    File.open('connector_metadata_cert.der', 'wb') { |f| f.print(@connector_metadata_cert.to_der) }
-
-    # Write connector metadata to file in euconfigs/
-    Dir.mkdir('euconfigs') unless File.directory?('euconfigs')
-    File.open(File.join('euconfigs', 'connector_metadata.xml'), 'w') { |f| f.print(@connector_metadata_raw) }
-    
-    # Write pkcs12 containing user-facing SSL cert and key
-    File.open('ssl.p12', 'wb') { |f| f.print(@ssl_p12.to_der) }
-
-    # Write pkcs12 containing SAML signing cert and key
-    File.open('saml_signing.p12', 'wb') { |f| f.print(@saml_signing_p12.to_der) }
-
-    # Write pkcs12 containing SAML crypt cert and key
-    File.open('saml_crypt.p12', 'wb') { |f| f.print(@saml_crypt_p12.to_der) }
-
-    # Render config templates
-    render_erb('application.properties', cfg)
-    render_erb('eidasmiddleware.properties', cfg)
-    render_erb("POSeIDAS_#{cfg['which_dvca']}.xml", cfg, 'POSeIDAS.xml')
+  op.on_tail('-h', '--help') do
+    puts op
+    exit
   end
-end
+end.parse!
+
+output_dir = ARGV[0]
+@mwcfg.render(output_dir)

@@ -5,9 +5,10 @@ services:
     ports:
       - "8448:8443"
     volumes:
-      - ./mw-config:/opt/eidas-middleware/configuration
+      - mw-config-test:/opt/eidas-middleware/configuration
       - mw-database-test:/opt/eidas-middleware/database
     container_name: eidas-middleware
 volumes:
   mw-database-test:
+  mw-config-test:
     external: true

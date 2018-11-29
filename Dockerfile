@@ -8,6 +8,6 @@ COPY Gemfile.lock Gemfile.lock
 RUN bundle install
 
 COPY generate generate
-COPY templates templates
+COPY lib lib
 
 ENTRYPOINT ["bundle", "exec", "generate"]

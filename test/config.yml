@@ -1,23 +1,19 @@
 which_dvca: TESTING
 environment: test
 middleware_url: https://localhost:8448
-connector_metadata_url: https://www.joint.signin.service.gov.uk/SAML2/metadata/connector
+connector_metadata_url: https://hub-connector-eidas-joint.cloudapps.digital/metadata.xml
 admin_password_hash: "$2a$10$VhGOf7RRHnhdwSIe93pyQuHGuHeNymCzhFAD5XDet3QRmMK4C./Xu"
 
-ssl:
-  cert: ssl.crt.pem
-  key: ssl.key.pem
+ssl_cert: ssl.crt.pem
+ssl_key: ssl.key.pem
 
-dvca_tls:
-  cert: dvca_tls.crt.pem
-  key: dvca_tls.key.pem
+dvca_tls_cert: dvca_tls.crt.pem
+dvca_tls_key: dvca_tls.key.pem
 
-saml_signing:
-  pkcs12: saml_signing.p12
-  passphrase: muffin
+saml_signing_pkcs12: saml_signing.p12
+saml_signing_passphrase: muffin
 
-saml_crypt:
-  cert: |
+saml_crypt_cert: |
     -----BEGIN CERTIFICATE-----
     MIICpjCCAY4CCQCZEvYqcRVyEDANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDDApz
     YW1sX2NyeXB0MB4XDTE4MDgzMTA5NDg0NloXDTI4MDgyODA5NDg0NlowFTETMBEG
@@ -35,7 +31,7 @@ saml_crypt:
     RcnVOGPU9ipUWjDr/7c1zu7YT1oWGZyKhMX2AE4wwLA7WV2xuo9eimqPSfzg4MEt
     Hd9yt8Y+jCrrYw==
     -----END CERTIFICATE-----
-  key: |
+saml_crypt_key: |
     -----BEGIN PRIVATE KEY-----
     MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDBUYWvYymIcoMp
     59xZGXmI+p+j4pitmY7bHR4iSxaN78E1XGK/gKi2qsKR/qrbu0Xw5w/lw79dFBKA
