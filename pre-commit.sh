@@ -22,7 +22,6 @@ function check_metadata {
 function cleanup {
   echo "Bringing down middleware:"
   docker-compose down
-  docker volume rm mw-config-test || :
 }
 trap cleanup EXIT
 
@@ -32,8 +31,10 @@ trap cleanup EXIT
   docker volume rm mw-config-test 2>/dev/null || :
   docker volume create mw-config-test
 
-  echo "[YAML] Generating test config..."
+  echo "Building config generator image"
   docker build -q -t mwcfgen-test .
+
+  echo "[YAML] Generating test config..."
   docker run --rm -v $PWD/test:/test -v mw-config-test:/output mwcfgen-test \
     --config-file=/test/config.yml /output
 
@@ -45,7 +46,6 @@ trap cleanup EXIT
   docker-compose down
 
   echo "[ENV] Generating test config..."
-  docker build -q -t mwcfgen-test .
   docker run --rm --env-file ./test/config.env -v mw-config-test:/output mwcfgen-test \
     --env /output
 
