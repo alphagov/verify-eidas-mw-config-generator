@@ -7,6 +7,7 @@ services:
     volumes:
       - ./mw-config:/opt/eidas-middleware/configuration
       - mw-database-test:/opt/eidas-middleware/database
+    container_name: eidas-middleware
 volumes:
   mw-database-test:
     external: true

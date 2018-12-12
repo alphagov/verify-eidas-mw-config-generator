@@ -28,4 +28,15 @@ poseidas.admin.username=user
 poseidas.admin.hashed.password=<%= admin_password_hash %>
 
 #logging
+##application logs
 logging.file=/opt/eidas-middleware/eidas-middleware.log
+
+##access logs
+server.tomcat.accesslog.directory=/opt/eidas-middleware
+server.tomcat.accesslog.enabled=true
+server.tomcat.accesslog.pattern=combined
+server.tomcat.accesslog.rename-on-rotate=true
+server.tomcat.accesslog.suffix=.log
+server.tomcat.accesslog.request-attributes-enabled=true
+server.tomcat.remote-ip-header=x-forwarded-for
+server.tomcat.protocol-header=x-forwarded-proto
