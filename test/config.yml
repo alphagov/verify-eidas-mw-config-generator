@@ -1,7 +1,7 @@
 which_dvca: TESTING
 environment: test
 middleware_url: https://localhost:8448
-connector_metadata_url: https://www.integration.signin.service.gov.uk/SAML2/metadata/connector
+connector_metadata_url: https://connector-node-integration.london.verify.govsvc.uk/ConnectorMetadata
 admin_password_hash: "$2a$10$VhGOf7RRHnhdwSIe93pyQuHGuHeNymCzhFAD5XDet3QRmMK4C./Xu"
 
 ssl:
