@@ -7,6 +7,12 @@ The [middleware](https://github.com/Governikus/eidas-middleware) provided by Ger
 * SAML keypairs in Java Keystore (JKS) format
 * application.properties and eidasmiddleware.properties defining server parameters
 
+Merging changes into the master repository triggers a build on the Jenkins project `eidas-mw-config-generator`.
+
+This build in turn creates a docker hub image using the `eidas-mw-config-generator-upload-to-dockerhub` Jenkins project.
+
+The nightly roll of the German Middleware uses this image to create the runtime configuration, using [verify-terraform/modules/eidas_mw/cloud-init](https://github.com/alphagov/verify-terraform/tree/master/modules/eidas_mw/cloud-init) config.
+
 ## Requirements
 
 * Docker
@@ -24,3 +30,4 @@ A sample config definition can be found in `test/config.yml`.
 ## Testing
 
 The config generator can be tested against the actual German middleware by running `./pre-commit.sh`.
+
