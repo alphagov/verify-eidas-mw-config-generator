@@ -30,6 +30,8 @@ poseidas.admin.hashed.password=<%= admin_password_hash %>
 #logging
 ##application logs
 logging.file=/opt/eidas-middleware/eidas-middleware.log
+logging.level.de.governikus.eumw.eidasmiddleware=DEBUG
+logging.pattern.file=%d{ISO8601} %t %p %c - %replace{%m}{\n}{\t} %throwable{1}%n
 
 ##access logs
 server.tomcat.accesslog.directory=/opt/eidas-middleware
