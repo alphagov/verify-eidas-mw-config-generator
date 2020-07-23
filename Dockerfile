@@ -1,4 +1,4 @@
-FROM ruby:2.5.7
+FROM ruby:2.5.8
 
 WORKDIR /mw-config-generator
 
