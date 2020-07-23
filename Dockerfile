@@ -5,7 +5,7 @@ WORKDIR /mw-config-generator
 COPY Gemfile Gemfile
 COPY Gemfile.lock Gemfile.lock
 
-RUN bundle install
+RUN gem install bundler && bundler update --bundler && bundle install
 
 COPY generate generate
 COPY templates templates
